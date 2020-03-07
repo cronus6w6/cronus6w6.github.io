@@ -1,8 +1,60 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
-    <title>test</title>
-    <url>/2020-03-08/test/</url>
-    <content><![CDATA[]]></content>
+    <title>ELK介紹與部署</title>
+    <url>/2020-03-08/ELK%E4%BB%8B%E7%B4%B9%E8%88%87%E9%83%A8%E7%BD%B2/</url>
+    <content><![CDATA[<h1 id="什麼是ELK"><a href="#什麼是ELK" class="headerlink" title="什麼是ELK"></a>什麼是ELK</h1><p>ELK其實不是一個software (｢･ω･)｢<br>ELK是由<a href="https://www.elastic.co/cn/" target="_blank" rel="noopener">elastic</a>這間公司所開發的三個software(<strong>E</strong>lastic search、<strong>L</strong>ogstash、<strong>K</strong>ibana)<br>這間公司還有做其他的software，像是Beats、APM之類的，有興趣的可以再去研究<br>那我們來介紹今天的三個主角吧~</p>
+<h2 id="Elastic-Search"><a href="#Elastic-Search" class="headerlink" title="Elastic Search"></a>Elastic Search</h2><p>簡稱ES<del>(不是ECMAScript喔)</del>，他是一個可以做平行處理的Search Engine，Elastic Search可以將很多Server節點(Node)加入叢集(Cluster)，以進行平行運算。<br>IT狗有比較生動的介紹，可以比較MySQL與ES的差異。</p>
+<iframe src="https://www.facebook.com/plugins/post.php?href=https%3A%2F%2Fwww.facebook.com%2Fitdogcom%2Fposts%2F1385281961640196&width=500" width="500" height="717" style="border:none;overflow:hidden" scrolling="no" frameborder="0" allowTransparency="true" allow="encrypted-media"></iframe>
+
+<h2 id="Logstash"><a href="#Logstash" class="headerlink" title="Logstash"></a>Logstash</h2><p>Logstash可以將各方不同的Log資訊進行整理過濾轉換後，再依照需要儲存在指定的地方。<br>Logstash會經過三個步驟(Inputs、Filters、Outputs)，將不同種類協定傳來的資料進行整理轉送，再經由其他程式進行儲存、修改等後續動作。<br>例如你做的專案需要整合各種設備或者程式的Log並且可以搜索，你就可以使用Logstash轉換成統一格式後，以不同設備類型做標記，存放到Elastic Search，不需要自己寫一套轉換器，算是相當方便呢~<br><img src="https://www.javainuse.com/logstash-pipeline.jpg" alt="Logstash pipeline"></p>
+<center><a href="https://www.javainuse.com/spring/springboot-microservice-elk" target="_blank" rel="noopener">出自某篇教學文章</a></center>
+
+<h2 id="Kibana"><a href="#Kibana" class="headerlink" title="Kibana"></a>Kibana</h2><p>Kibana<del>(不是Hibana喔)</del>是一個讓使用者方便查詢及觀看資料的前端服務，也可以做一些Machine Learning，跟PHPMySQL很像，但是功能多了許多。<br><img src="https://static.coderbridge.com/img/cronus6w6/87e2240f71ec4e9b9f67f3609d6870e1.png" alt="Kibana Panel"></p>
+<hr>
+<p>ELK分工大致如下：<br>各種不同格式的Log資料→Logstash整理轉換過濾→ES做存取及查詢→Kibana做為ES的UI，方便使用者操作資料查詢。</p>
+<h1 id="環境安裝"><a href="#環境安裝" class="headerlink" title="環境安裝"></a>環境安裝</h1><p>接下來我們來實作架設ELK環境吧，這三個程式都可以分開在不同伺服器執行，但因為小的我電腦設備沒那麼好QQ<del>(希望有人能抖內我幾條Ram阿)</del>，因此接下來應該都會在同一台主機運行。<br>這次實驗我用的linux版本是<code>Ubuntu 18.04.4-desktop-amd64</code>請先下載安裝好喔 (ゝ∀･)b</p>
+<h2 id="安裝之前…"><a href="#安裝之前…" class="headerlink" title="安裝之前…"></a>安裝之前…</h2><p>安裝之前我們有兩件事要做</p>
+<h3 id="1-Java"><a href="#1-Java" class="headerlink" title="1. Java"></a>1. Java</h3><p>由於ELK需要用到Java，因此我們要先安裝Java</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">sudo apt-get install openjdk-8-jdk</span><br></pre></td></tr></table></figure>
+<p>我們可以用<code>java --version</code>來檢查Java是否安裝成功</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">$ java -version</span><br><span class="line">openjdk version &quot;1.8.0_242&quot;</span><br><span class="line">OpenJDK Runtime Environment (build 1.8.0_242-8u242-b08-0ubuntu3~18.04-b08)</span><br><span class="line">OpenJDK 64-Bit Server VM (build 25.242-b08, mixed mode)</span><br></pre></td></tr></table></figure>
+<p>如果你不需要用到OM2M，可以選擇openjdk-11-jdk</p>
+<h3 id="2-elastic的repository"><a href="#2-elastic的repository" class="headerlink" title="2. elastic的repository"></a>2. elastic的repository</h3><p>elastic系列的產品並沒有在 apt 的安裝清單中，因此我們需要加入他們的repository</p>
+<ol>
+<li>加入elastic的GPG key<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">wget -qO - https:&#x2F;&#x2F;artifacts.elastic.co&#x2F;GPG-KEY-elasticsearch | sudo apt-key add -</span><br></pre></td></tr></table></figure></li>
+<li>將elastic加入apt的sources list<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">echo &quot;deb https:&#x2F;&#x2F;artifacts.elastic.co&#x2F;packages&#x2F;7.x&#x2F;apt stable main&quot; | sudo tee -a &#x2F;etc&#x2F;apt&#x2F;sources.list.d&#x2F;elastic-7.x.list</span><br></pre></td></tr></table></figure></li>
+<li>更新apt<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">sudo apt-get update</span><br></pre></td></tr></table></figure>
+這樣我們就將elastic加入apt中了，是不是很簡單呢(๑•̀ㅂ•́)و✧</li>
+</ol>
+<h2 id="開始安裝"><a href="#開始安裝" class="headerlink" title="開始安裝"></a>開始安裝</h2><p>前置作業搞定了，現在終於可以開始建置ELK了( • ̀ω•́ )</p>
+<h4 id="Elastic-Search-1"><a href="#Elastic-Search-1" class="headerlink" title="Elastic Search"></a><strong>Elastic Search</strong></h4><figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">sudo apt-get install elasticsearch</span><br><span class="line">sudo systemctl start elasticsearch.service</span><br></pre></td></tr></table></figure>
+<h4 id="Logstash-1"><a href="#Logstash-1" class="headerlink" title="Logstash"></a><strong>Logstash</strong></h4><figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">sudo apt-get install logstash</span><br><span class="line">sudo systemctl start logstash.service</span><br></pre></td></tr></table></figure>
+<h4 id="Kibana-1"><a href="#Kibana-1" class="headerlink" title="Kibana"></a><strong>Kibana</strong></h4><figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">sudo apt-get install kibana</span><br><span class="line">sudo systemctl start kibana.service</span><br></pre></td></tr></table></figure>
+<p>什麼? 這樣就裝好了??? (((ﾟДﾟ;)))<br>對 就是這麼簡單 σ`∀´)σ<br>這時候你可以打開瀏覽器開啟連結<code>http://localhost:5601</code><br>如果有東西出現代表Kibana正常啟動<br><img src="https://static.coderbridge.com/img/cronus6w6/25e50480ea8c4fd6a8f3d0169ef826b8.png" alt=""><br>接下來你可以瀏覽<code>http://localhost:9200</code><br>如果有東西出現代表ES正常啟動<br><img src="https://static.coderbridge.com/img/cronus6w6/29eaec9819c54c3da1912c8b2662bc1b.png" alt="ES web"><br>Logstash需要一些東西才會運作</p>
+<h1 id="設定"><a href="#設定" class="headerlink" title="設定"></a>設定</h1><p>安裝好了接下來是將三個服務串起來，ES跟Kibana預設值就是串起來的，因此我們只需要將ES與Logstash串起來就會動了。<br>Server預設使用的Port，可以對照著看<br><img src="https://static.coderbridge.com/img/cronus6w6/e8097ac470ce4b38b6738d8d3183cc60.png" alt=""><br>在Elastic Search還沒有資料時，在Kibana的Discover會看到這個畫面<br><img src="https://static.coderbridge.com/img/cronus6w6/f57e630cba1948e68ef934ede779e634.png" alt=""><br>我們可以用Logstash簡單的塞一些資料進去，這時就要設定一下Logstash了<br>設定Logstash也很簡單，在<code>/etc/logstash</code>有一個檔案<code>logstash-sample.conf</code><br>將他複製一份到<code>/etc/logstash/conf.d/logstash.conf</code>，設定檔檔名只要是<code>*.conf</code>就可以了</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">cp &#x2F;etc&#x2F;logstash&#x2F;logstash-sample.conf &#x2F;etc&#x2F;logstash&#x2F;conf.d&#x2F;logstash.conf</span><br></pre></td></tr></table></figure>
+<p>接下來修改一下內容</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line"># Sample Logstash configuration for creating a simple</span><br><span class="line"># Beats -&gt; Logstash -&gt; Elasticsearch pipeline.</span><br><span class="line"></span><br><span class="line">input &#123;</span><br><span class="line">  tcp &#123;  #使用TCP協定</span><br><span class="line">    port &#x3D;&gt; 5044</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">output &#123;</span><br><span class="line">  elasticsearch &#123;</span><br><span class="line">    hosts &#x3D;&gt; [&quot;http:&#x2F;&#x2F;localhost:9200&quot;]</span><br><span class="line">    #index &#x3D;&gt; &quot;%&#123;[@metadata][beat]&#125;-%&#123;[@metadata][version]&#125;-%&#123;+YYYY.MM.dd&#125;&quot; #這行是beats用的 註解掉目前用不到</span><br><span class="line">    #user &#x3D;&gt; &quot;elastic&quot;</span><br><span class="line">    #password &#x3D;&gt; &quot;changeme&quot;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>然後重啟logstash</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">sudo systemctl restart logstash.service</span><br></pre></td></tr></table></figure>
+<p>logstash的測試設定就完成了<br>我們可以下這個指令</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">echo &quot;test&quot; | nc localhost 5044</span><br></pre></td></tr></table></figure>
+<p>5044是Logstash我們設定監聽的Port<br>如果他是停在那裏沒換行就是成功了<br>如果他直接換行了可能需要用<code>systemctl status logstash.service</code>檢查一下Logstash有沒有正常啟動<br><img src="https://static.coderbridge.com/img/cronus6w6/e0617810c0df4618a2bf07ebe21d44f2.png" alt=""><br>如果成功了，你開啟<code>http://localhost:9200/_cat/indices</code>可以找到logstash開頭index<br><img src="https://static.coderbridge.com/img/cronus6w6/ad37a61c6a9048039a8ae3a99235773f.png" alt=""><br>你重整Kibana的Discover就會看到以下畫面<br><img src="https://static.coderbridge.com/img/cronus6w6/6ed74cb183414113b12ac72196eb1edb.png" alt=""><br>這時在Index pattern輸入<code>logstash-*</code>他會用正規表達是選取<code>logstash-</code>開頭的index，點選Next step<br><img src="https://static.coderbridge.com/img/cronus6w6/ccf6a904af8a4bb08851c470f02fc967.png" alt=""><br>選擇以@timestamp這個欄位作為時間過濾的欄位<br><img src="https://static.coderbridge.com/img/cronus6w6/4644d348e3634fd298dfadcee998673d.png" alt=""><br>然後點選<code>create index parttern</code>就可以新增這個index的查詢了<br>這時後你就可以看到剛剛新增的log了<br><img src="https://static.coderbridge.com/img/cronus6w6/442e5130d8c34ad7ab03b3005aa6f820.png" alt=""><br>最基礎的ELK架設終於做完了，是不是很簡單呢(ゝ∀･)b</p>
+<style>
+.article-content h1, .article-content h2, .article-content h3, .article-content h4, .article-content h5, .article-content h6 {
+    margin-block-start: 0.5em;
+    margin-block-end: 0.5em;
+}
+</style>
+]]></content>
+      <categories>
+        <category>ELK</category>
+      </categories>
+      <tags>
+        <tag>Elastic Search</tag>
+        <tag>Logstash</tag>
+        <tag>Kibana</tag>
+      </tags>
   </entry>
 </search>
